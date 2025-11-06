@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#000000" rx="128"/>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9D4EDD;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#44D7B6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Book icon -->
+  <path d="M128 96C128 78.3269 142.327 64 160 64H352C369.673 64 384 78.3269 384 96V416C384 433.673 369.673 448 352 448H160C142.327 448 128 433.673 128 416V96Z" fill="url(#grad1)"/>
+  <rect x="160" y="96" width="192" height="32" rx="8" fill="#000000" opacity="0.2"/>
+  <rect x="160" y="144" width="192" height="16" rx="8" fill="#000000" opacity="0.1"/>
+  <rect x="160" y="176" width="160" height="16" rx="8" fill="#000000" opacity="0.1"/>
+  <rect x="160" y="208" width="192" height="16" rx="8" fill="#000000" opacity="0.1"/>
+  <rect x="160" y="240" width="128" height="16" rx="8" fill="#000000" opacity="0.1"/>
+  
+  <!-- Center line -->
+  <line x1="256" y1="96" x2="256" y2="416" stroke="#000000" stroke-width="2" opacity="0.2"/>
+</svg>
