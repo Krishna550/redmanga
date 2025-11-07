@@ -217,8 +217,10 @@ const Navbar = ({ onSearch }) => {
             </a>
           </div>
           
-          {/* Bottom red line */}
-          <div className=\"h-0.5 bg-red-primary/30 rounded-bl-3xl\"></div>
+          {/* Bottom red glow with curve - thin vertical line */}
+          <div className="relative w-full h-px pl-5 rounded-bl-3xl">
+            <div className="absolute inset-0 ml-8 bg-red-primary/15 rounded-bl-3xl shadow-[0_0_20px_rgba(220,20,60,0.8)] blur-[1px]"></div>
+          </div>
         </div>
       </div>
     </>
