@@ -73,6 +73,22 @@ class AdminAuth(BaseModel):
 class SearchQuery(BaseModel):
     query: str
 
+class MangaUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    author: Optional[str] = None
+    coverImage: Optional[str] = None
+    genres: Optional[List[str]] = None
+    status: Optional[str] = None
+
+class ChapterUpdate(BaseModel):
+    chapterNumber: Optional[float] = None
+    title: Optional[str] = None
+    pages: Optional[List[str]] = None
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[str]
+
 
 # ============= Helper Functions =============
 
@@ -183,6 +199,130 @@ async def delete_chapter(chapter_id: str, authorization: str = Header(None)):
     )
     
     return {"success": True, "message": "Chapter deleted"}
+
+
+@api_router.put("/admin/manga/{manga_id}", response_model=Manga)
+async def update_manga(manga_id: str, manga_update: MangaUpdate, authorization: str = Header(None)):
+    """Update manga details (Admin only)"""
+    verify_admin(authorization)
+    
+    # Check if manga exists
+    existing_manga = await db.manga.find_one({"id": manga_id}, {"_id": 0})
+    if not existing_manga:
+        raise HTTPException(status_code=404, detail="Manga not found")
+    
+    # Build update dict with only provided fields
+    update_data = {k: v for k, v in manga_update.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update manga
+    await db.manga.update_one(
+        {"id": manga_id},
+        {"$set": update_data}
+    )
+    
+    # Get updated manga
+    updated_manga = await db.manga.find_one({"id": manga_id}, {"_id": 0})
+    if isinstance(updated_manga.get('createdAt'), str):
+        updated_manga['createdAt'] = datetime.fromisoformat(updated_manga['createdAt'])
+    
+    return updated_manga
+
+
+@api_router.put("/admin/chapter/{chapter_id}", response_model=Chapter)
+async def update_chapter(chapter_id: str, chapter_update: ChapterUpdate, authorization: str = Header(None)):
+    """Update chapter details (Admin only)"""
+    verify_admin(authorization)
+    
+    # Check if chapter exists
+    existing_chapter = await db.chapters.find_one({"id": chapter_id}, {"_id": 0})
+    if not existing_chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    # Build update dict with only provided fields
+    update_data = {k: v for k, v in chapter_update.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update chapter
+    await db.chapters.update_one(
+        {"id": chapter_id},
+        {"$set": update_data}
+    )
+    
+    # Get updated chapter
+    updated_chapter = await db.chapters.find_one({"id": chapter_id}, {"_id": 0})
+    if isinstance(updated_chapter.get('createdAt'), str):
+        updated_chapter['createdAt'] = datetime.fromisoformat(updated_chapter['createdAt'])
+    
+    return updated_chapter
+
+
+@api_router.post("/admin/manga/bulk-delete")
+async def bulk_delete_manga(request: BulkDeleteRequest, authorization: str = Header(None)):
+    """Bulk delete manga (Admin only)"""
+    verify_admin(authorization)
+    
+    # Delete all manga
+    result = await db.manga.delete_many({"id": {"$in": request.ids}})
+    
+    # Delete all associated chapters
+    await db.chapters.delete_many({"mangaId": {"$in": request.ids}})
+    
+    return {"success": True, "deleted": result.deleted_count}
+
+
+@api_router.post("/admin/chapters/bulk-delete")
+async def bulk_delete_chapters(request: BulkDeleteRequest, authorization: str = Header(None)):
+    """Bulk delete chapters (Admin only)"""
+    verify_admin(authorization)
+    
+    # Get all chapters to find their manga IDs
+    chapters = await db.chapters.find({"id": {"$in": request.ids}}, {"_id": 0, "mangaId": 1}).to_list(1000)
+    manga_ids = list(set([c['mangaId'] for c in chapters]))
+    
+    # Delete chapters
+    result = await db.chapters.delete_many({"id": {"$in": request.ids}})
+    
+    # Update chapter counts for affected manga
+    for manga_id in manga_ids:
+        chapter_count = await db.chapters.count_documents({"mangaId": manga_id})
+        await db.manga.update_one(
+            {"id": manga_id},
+            {"$set": {"totalChapters": chapter_count}}
+        )
+    
+    return {"success": True, "deleted": result.deleted_count}
+
+
+@api_router.get("/admin/statistics")
+async def get_statistics(authorization: str = Header(None)):
+    """Get admin statistics (Admin only)"""
+    verify_admin(authorization)
+    
+    total_manga = await db.manga.count_documents({})
+    total_chapters = await db.chapters.count_documents({})
+    
+    # Get manga with most chapters
+    pipeline = [
+        {"$group": {"_id": "$mangaId", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 1}
+    ]
+    top_chapter_result = await db.chapters.aggregate(pipeline).to_list(1)
+    
+    # Get recent manga
+    recent_manga = await db.manga.find({}, {"_id": 0, "id": 1, "title": 1, "createdAt": 1}).sort("createdAt", -1).limit(5).to_list(5)
+    
+    return {
+        "totalManga": total_manga,
+        "totalChapters": total_chapters,
+        "averageChaptersPerManga": round(total_chapters / total_manga, 2) if total_manga > 0 else 0,
+        "recentManga": recent_manga
+    }
 
 
 # ============= Public Routes =============
