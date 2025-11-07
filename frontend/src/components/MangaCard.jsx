@@ -2,13 +2,22 @@ import { Link } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
-const MangaCard = ({ manga }) => {
+  const MangaCard = ({ manga }) => {
+    // Convert base64 to data URL if needed
+    const getImageSrc = (coverImage) => {
+      if (!coverImage) return '/manga-reader.png';
+      if (coverImage.startsWith('data:')) return coverImage;
+      if (coverImage.startsWith('http')) return coverImage;
+      // Assume it's base64 without prefix
+      return `data:image/jpeg;base64,${coverImage}`;
+  };
+
   return (
     <Link to={`/manga/${manga.id}`}>
       <Card className="overflow-hidden hover-lift bg-card border-red-primary/20 hover:border-red-primary/50 transition-all duration-300">
         <div className="aspect-[3/4] relative overflow-hidden">
           <img
-            src={manga.coverImage}
+            src={getImageSrc(manga.coverImage)}
             alt={manga.title}
             className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
             onError={(e) => {
