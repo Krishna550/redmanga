@@ -63,16 +63,34 @@ export const api = {
   },
 
   createChapter: async (chapterData, adminPassword) => {
-    const response = await fetch(`${BACKEND_URL}/api/admin/chapter`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': adminPassword
-      },
-      body: JSON.stringify(chapterData)
-    });
-    if (!response.ok) throw new Error('Failed to create chapter');
-    return response.json();
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/chapter`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': adminPassword
+        },
+        body: JSON.stringify(chapterData)
+      });
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned an error. The chapter might be too large. Try reducing the number or size of images.');
+      }
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create chapter');
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('Create chapter error:', error);
+      throw error;
+    }
   },
 
   deleteManga: async (mangaId, adminPassword) => {
