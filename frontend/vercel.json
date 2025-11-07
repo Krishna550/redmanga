@@ -1,0 +1,15 @@
+{
+  "buildCommand": "yarn build",
+  "outputDirectory": "build",
+  "framework": null,
+  "installCommand": "yarn install",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "REACT_APP_BACKEND_URL": "@react_app_backend_url"
+  }
+}
