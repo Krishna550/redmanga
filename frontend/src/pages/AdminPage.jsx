@@ -251,7 +251,7 @@ const AdminPage = () => {
     try {
       const chapterData = {
         mangaId: selectedMangaId,
-        chapterNumber: parseFloat(chapterNumber),
+        chapterNumber: chapterNumber ? parseFloat(chapterNumber) : null,
         title: chapterTitle,
         pages: chapterPages
       };
@@ -463,7 +463,7 @@ const AdminPage = () => {
     setLoading(true);
     try {
       const updateData = {
-        chapterNumber: parseFloat(editingChapter.chapterNumber),
+        chapterNumber: editingChapter.chapterNumber ? parseFloat(editingChapter.chapterNumber) : null,
         title: editingChapter.title,
         pages: editingChapter.pages
       };
@@ -741,14 +741,13 @@ const AdminPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Chapter Number *</Label>
+                  <Label>Chapter Number</Label>
                   <Input
-                    required
                     type="number"
                     step="0.1"
                     value={chapterNumber}
                     onChange={(e) => setChapterNumber(e.target.value)}
-                    placeholder="1 or 1.5"
+                    placeholder="1 or 1.5 (optional)"
                     className="bg-background border-red-primary/30"
                     data-testid="chapter-number-input"
                   />
@@ -1166,9 +1165,10 @@ const AdminPage = () => {
                     <Label>Chapter Number</Label>
                     <Input
                       type="number"
-                      step="0.1"
-                      value={editingChapter.chapterNumber}
+                      step="1"
+                      value={editingChapter.chapterNumber || ''}
                       onChange={(e) => setEditingChapter({...editingChapter, chapterNumber: e.target.value})}
+                      placeholder="1 or 1.5"
                       className="bg-background border-red-primary/30"
                     />
                   </div>
