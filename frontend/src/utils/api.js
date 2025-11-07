@@ -91,5 +91,65 @@ export const api = {
     });
     if (!response.ok) throw new Error('Failed to delete chapter');
     return response.json();
+  },
+
+  updateManga: async (mangaId, mangaData, adminPassword) => {
+    const response = await fetch(`${BACKEND_URL}/api/admin/manga/${mangaId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': adminPassword
+      },
+      body: JSON.stringify(mangaData)
+    });
+    if (!response.ok) throw new Error('Failed to update manga');
+    return response.json();
+  },
+
+  updateChapter: async (chapterId, chapterData, adminPassword) => {
+    const response = await fetch(`${BACKEND_URL}/api/admin/chapter/${chapterId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': adminPassword
+      },
+      body: JSON.stringify(chapterData)
+    });
+    if (!response.ok) throw new Error('Failed to update chapter');
+    return response.json();
+  },
+
+  bulkDeleteManga: async (mangaIds, adminPassword) => {
+    const response = await fetch(`${BACKEND_URL}/api/admin/manga/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': adminPassword
+      },
+      body: JSON.stringify({ ids: mangaIds })
+    });
+    if (!response.ok) throw new Error('Failed to bulk delete manga');
+    return response.json();
+  },
+
+  bulkDeleteChapters: async (chapterIds, adminPassword) => {
+    const response = await fetch(`${BACKEND_URL}/api/admin/chapters/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': adminPassword
+      },
+      body: JSON.stringify({ ids: chapterIds })
+    });
+    if (!response.ok) throw new Error('Failed to bulk delete chapters');
+    return response.json();
+  },
+
+  getStatistics: async (adminPassword) => {
+    const response = await fetch(`${BACKEND_URL}/api/admin/statistics`, {
+      headers: { 'Authorization': adminPassword }
+    });
+    if (!response.ok) throw new Error('Failed to get statistics');
+    return response.json();
   }
 };
