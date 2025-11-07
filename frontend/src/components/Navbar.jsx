@@ -158,27 +158,14 @@ const Navbar = ({ onSearch }) => {
 
       {/* Mobile Menu Sidebar - Only extends to content height */}
       <div
-        className={`fixed top-0 right-0 w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed right-0 w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
           isMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ height: 'auto', maxHeight: '100vh' }}
+        style={{ top: '64px', height: 'auto', maxHeight: 'calc(100vh - 64px)' }}
       >
-        <div className="flex flex-col">
-          {/* Close button */}
-          <div className="flex justify-end p-4 border-b border-red-primary/30">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-foreground hover:text-red-primary hover:bg-red-primary/10 transition-all"
-              onClick={() => setIsMenuOpen(false)}
-              data-testid="close-mobile-menu"
-            >
-              <X className="w-6 h-6" />
-            </Button>
-          </div>
-
+        <div className="flex flex-col h-full">
           {/* Menu items - No icons, just text, auto height */}
-          <div className="px-4 pt-4 pb-6 space-y-1">
+          <div className="px-4 pt-4 pb-6 space-y-1 flex-1">
             <Link to="/" onClick={() => setIsMenuOpen(false)}>
               <Button
                 variant="ghost"
@@ -229,6 +216,9 @@ const Navbar = ({ onSearch }) => {
               </Button>
             </a>
           </div>
+          
+          {/* Bottom red line */}
+          <div className="border-b-2 border-red-primary/30"></div>
         </div>
       </div>
     </>
