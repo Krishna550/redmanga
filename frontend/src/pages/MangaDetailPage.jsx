@@ -95,7 +95,7 @@ const MangaDetailPage = () => {
           {/* Cover Image */}
           <div className="mx-auto md:mx-0">
             <img
-              src={manga.coverImage}
+              src={manga.coverImage.startsWith('data:') ? manga.coverImage : `data:image/jpeg;base64,${manga.coverImage}`}
               alt={manga.title}
               className="w-full max-w-sm rounded-lg shadow-2xl shadow-red-primary/30"
               onError={(e) => {
