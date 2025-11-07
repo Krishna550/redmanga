@@ -218,7 +218,7 @@ const Navbar = ({ onSearch }) => {
           </div>
           
           {/* Bottom red line */}
-          <div className="border-b-2 border-red-primary/30 rounded-bl-2xl"></div>
+          <div className=\"h-0.5 bg-red-primary/30 rounded-bl-3xl\"></div>
         </div>
       </div>
     </>
