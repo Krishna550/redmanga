@@ -105,6 +105,10 @@ body::after {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--red-secondary);
 }
+/* Hide scrollbar for reader pages */
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
 
 /* Glass effect */
 .glass {
