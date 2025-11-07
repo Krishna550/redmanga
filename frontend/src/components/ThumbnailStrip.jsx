@@ -32,9 +32,15 @@ export const ThumbnailStrip = ({ imageUrls, currentPage, onPageSelect }) => {
         {imageUrls.map((url, index) => {
           // Use proxy for external images to bypass CORS
           const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
-          const thumbnailUrl = url.startsWith('http')
-            ? `${BACKEND_URL}/api/proxy-image?url=${encodeURIComponent(url)}`
-            : url;
+          let thumbnailUrl;
+          if (url.startsWith('http')) {
+            thumbnailUrl = `${BACKEND_URL}/api/proxy-image?url=${encodeURIComponent(url)}`;
+          } else if (url.startsWith('data:')) {
+            thumbnailUrl = url;
+          } else {
+            // It's base64 without prefix
+            thumbnailUrl = `data:image/jpeg;base64,${url}`;
+          }
           
           return (
             <div
