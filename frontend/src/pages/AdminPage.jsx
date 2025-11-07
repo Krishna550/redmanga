@@ -427,12 +427,11 @@ const AdminPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Chapter Title *</Label>
+                  <Label>Chapter Title</Label>
                   <Input
-                    required
                     value={chapterTitle}
                     onChange={(e) => setChapterTitle(e.target.value)}
-                    placeholder="Chapter title"
+                    placeholder="Chapter title (optional)"
                     className="bg-background border-red-primary/30"
                   />
                 </div>
