@@ -277,27 +277,39 @@ const ReaderPage = () => {
           style={{ scrollBehavior: 'smooth' }}
         >
           <div className="w-full">
-            {chapter.pages.map((page, index) => (
-              <div
-                key={index}
-                ref={(el) => (imageRefs.current[index] = el)}
-                className="w-full"
-                style={{ margin: 0, padding: 0, display: 'block' }}
-              >
-                <img
-                  src={page}
-                  alt={`Page ${index + 1}`}
-                  className="w-full h-auto block"
-                  style={{
-                    margin: 0,
-                    padding: 0,
-                    display: 'block',
-                    userSelect: 'none'
-                  }}
-                  onClick={handleDoubleTap}
-                />
-              </div>
-            ))}
+            {chapter.pages.map((page, index) => {
+              // Format image src - add data URI prefix if it's just base64
+              const imageSrc = page.startsWith('data:') || page.startsWith('http') 
+                ? page 
+                : `data:image/jpeg;base64,${page}`;
+              
+              return (
+                <div
+                  key={index}
+                  ref={(el) => (imageRefs.current[index] = el)}
+                  className="w-full"
+                  style={{ margin: 0, padding: 0, display: 'block' }}
+                >
+                  <img
+                    src={imageSrc}
+                    alt={`Page ${index + 1}`}
+                    className="w-full h-auto block"
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      display: 'block',
+                      userSelect: 'none'
+                    }}
+                    onClick={handleDoubleTap}
+                    onError={(e) => {
+                      console.error(`Failed to load page ${index + 1}`);
+                      e.target.style.backgroundColor = '#1a1a1a';
+                      e.target.style.minHeight = '800px';
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -313,7 +325,11 @@ const ReaderPage = () => {
           >
             <img
               ref={imageRef}
-              src={chapter.pages[currentPage]}
+              src={
+                chapter.pages[currentPage].startsWith('data:') || chapter.pages[currentPage].startsWith('http')
+                  ? chapter.pages[currentPage]
+                  : `data:image/jpeg;base64,${chapter.pages[currentPage]}`
+              }
               alt={`Page ${currentPage + 1}`}
               className="max-w-full max-h-full object-contain"
               style={{
@@ -323,6 +339,10 @@ const ReaderPage = () => {
               }}
               onClick={handleDoubleTap}
               draggable={false}
+              onError={(e) => {
+                console.error(`Failed to load page ${currentPage + 1}`);
+                toast.error('Failed to load page');
+              }}
             />
           </div>
           
