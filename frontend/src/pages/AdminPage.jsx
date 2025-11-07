@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/utils/api';
 import { fileToBase64 } from '@/utils/storage';
 import { toast } from 'sonner';
-import { Lock, Upload, BookOpen, FileImage, Loader2, Plus, X } from 'lucide-react';
+import { Lock, Upload, BookOpen, FileImage, Loader2, Plus, X, Trash2, Edit, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -35,13 +35,33 @@ const AdminPage = () => {
   const [chapterPages, setChapterPages] = useState([]);
   const [chapterPagesPreview, setChapterPagesPreview] = useState([]);
 
+  // Management state
+  const [mangaList, setMangaList] = useState([]);
+  const [expandedManga, setExpandedManga] = useState(null);
+  const [mangaChapters, setMangaChapters] = useState({});
+  const [selectedMangaIds, setSelectedMangaIds] = useState([]);
+  const [selectedChapterIds, setSelectedChapterIds] = useState([]);
+  
+  // Edit state
+  const [editingManga, setEditingManga] = useState(null);
+  const [editingChapter, setEditingChapter] = useState(null);
+  
+  // Statistics state
+  const [statistics, setStatistics] = useState(null);
+
   const [activeTab, setActiveTab] = useState('manga');
 
   useEffect(() => {
     if (isAuthenticated) {
       loadManga();
+      if (activeTab === 'manage') {
+        loadMangaList();
+      }
+      if (activeTab === 'statistics') {
+        loadStatistics();
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeTab]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -64,6 +84,45 @@ const AdminPage = () => {
       setAllManga(manga);
     } catch (error) {
       console.error('Failed to load manga:', error);
+    }
+  };
+
+  const loadMangaList = async () => {
+    try {
+      const manga = await api.getAllManga(100, 0);
+      setMangaList(manga);
+    } catch (error) {
+      console.error('Failed to load manga list:', error);
+    }
+  };
+
+  const loadStatistics = async () => {
+    try {
+      const stats = await api.getStatistics(adminPassword);
+      setStatistics(stats);
+    } catch (error) {
+      console.error('Failed to load statistics:', error);
+      toast.error('Failed to load statistics');
+    }
+  };
+
+  const loadChaptersForManga = async (mangaId) => {
+    try {
+      const chapters = await api.getMangaChapters(mangaId);
+      setMangaChapters(prev => ({ ...prev, [mangaId]: chapters }));
+    } catch (error) {
+      console.error('Failed to load chapters:', error);
+    }
+  };
+
+  const toggleMangaExpand = async (mangaId) => {
+    if (expandedManga === mangaId) {
+      setExpandedManga(null);
+    } else {
+      setExpandedManga(mangaId);
+      if (!mangaChapters[mangaId]) {
+        await loadChaptersForManga(mangaId);
+      }
     }
   };
 
@@ -108,14 +167,20 @@ const AdminPage = () => {
         previews.push(URL.createObjectURL(file));
       }
       
-      setChapterPages(base64Pages);
-      setChapterPagesPreview(previews);
-      toast.success(`${base64Pages.length} pages loaded`);
+      setChapterPages(prev => [...prev, ...base64Pages]);
+      setChapterPagesPreview(prev => [...prev, ...previews]);
+      toast.success(`${base64Pages.length} pages added`);
     } catch (error) {
       toast.error('Failed to process images');
     } finally {
       setLoading(false);
     }
+  };
+
+  const removePage = (index) => {
+    setChapterPages(prev => prev.filter((_, i) => i !== index));
+    setChapterPagesPreview(prev => prev.filter((_, i) => i !== index));
+    toast.success('Page removed');
   };
 
   const handleCreateManga = async (e) => {
@@ -199,6 +264,221 @@ const AdminPage = () => {
     }
   };
 
+  const handleDeleteManga = async (mangaId) => {
+    if (!confirm('Are you sure you want to delete this manga and all its chapters?')) return;
+    
+    setLoading(true);
+    try {
+      await api.deleteManga(mangaId, adminPassword);
+      toast.success('Manga deleted successfully');
+      loadMangaList();
+      loadManga();
+    } catch (error) {
+      toast.error('Failed to delete manga');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId, mangaId) => {
+    if (!confirm('Are you sure you want to delete this chapter?')) return;
+    
+    setLoading(true);
+    try {
+      await api.deleteChapter(chapterId, adminPassword);
+      toast.success('Chapter deleted successfully');
+      await loadChaptersForManga(mangaId);
+      loadMangaList();
+    } catch (error) {
+      toast.error('Failed to delete chapter');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDeleteManga = async () => {
+    if (selectedMangaIds.length === 0) {
+      toast.error('No manga selected');
+      return;
+    }
+    
+    if (!confirm(`Delete ${selectedMangaIds.length} manga and all their chapters?`)) return;
+    
+    setLoading(true);
+    try {
+      await api.bulkDeleteManga(selectedMangaIds, adminPassword);
+      toast.success(`${selectedMangaIds.length} manga deleted`);
+      setSelectedMangaIds([]);
+      loadMangaList();
+      loadManga();
+    } catch (error) {
+      toast.error('Failed to bulk delete manga');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDeleteChapters = async () => {
+    if (selectedChapterIds.length === 0) {
+      toast.error('No chapters selected');
+      return;
+    }
+    
+    if (!confirm(`Delete ${selectedChapterIds.length} chapters?`)) return;
+    
+    setLoading(true);
+    try {
+      await api.bulkDeleteChapters(selectedChapterIds, adminPassword);
+      toast.success(`${selectedChapterIds.length} chapters deleted`);
+      setSelectedChapterIds([]);
+      if (expandedManga) {
+        await loadChaptersForManga(expandedManga);
+      }
+      loadMangaList();
+    } catch (error) {
+      toast.error('Failed to bulk delete chapters');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditManga = (manga) => {
+    setEditingManga({
+      id: manga.id,
+      title: manga.title,
+      description: manga.description,
+      author: manga.author,
+      genres: manga.genres.join(', '),
+      status: manga.status,
+      coverImage: null,
+      currentCover: manga.coverImage
+    });
+  };
+
+  const handleUpdateManga = async (e) => {
+    e.preventDefault();
+    
+    setLoading(true);
+    try {
+      const updateData = {
+        title: editingManga.title,
+        description: editingManga.description,
+        author: editingManga.author,
+        genres: editingManga.genres.split(',').map(g => g.trim()).filter(g => g),
+        status: editingManga.status
+      };
+      
+      if (editingManga.coverImage) {
+        updateData.coverImage = editingManga.coverImage;
+      }
+
+      await api.updateManga(editingManga.id, updateData, adminPassword);
+      toast.success('Manga updated successfully');
+      setEditingManga(null);
+      loadMangaList();
+      loadManga();
+    } catch (error) {
+      toast.error('Failed to update manga');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditChapter = async (chapter, mangaId) => {
+    // Load full chapter details with pages
+    try {
+      const fullChapter = await api.getChapterDetails(chapter.id);
+      setEditingChapter({
+        id: fullChapter.id,
+        mangaId: mangaId,
+        chapterNumber: fullChapter.chapterNumber,
+        title: fullChapter.title,
+        pages: fullChapter.pages,
+        pagesPreview: fullChapter.pages
+      });
+    } catch (error) {
+      toast.error('Failed to load chapter details');
+    }
+  };
+
+  const removeEditPageAtIndex = (index) => {
+    setEditingChapter(prev => ({
+      ...prev,
+      pages: prev.pages.filter((_, i) => i !== index),
+      pagesPreview: prev.pagesPreview.filter((_, i) => i !== index)
+    }));
+    toast.success('Page removed');
+  };
+
+  const addPagesToEditChapter = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    setLoading(true);
+    try {
+      const base64Pages = [];
+      
+      for (const file of files) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 5MB)`);
+          continue;
+        }
+        const base64 = await fileToBase64(file);
+        base64Pages.push(base64);
+      }
+      
+      setEditingChapter(prev => ({
+        ...prev,
+        pages: [...prev.pages, ...base64Pages],
+        pagesPreview: [...prev.pagesPreview, ...base64Pages]
+      }));
+      
+      toast.success(`${base64Pages.length} pages added`);
+    } catch (error) {
+      toast.error('Failed to process images');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateChapter = async (e) => {
+    e.preventDefault();
+    
+    setLoading(true);
+    try {
+      const updateData = {
+        chapterNumber: parseFloat(editingChapter.chapterNumber),
+        title: editingChapter.title,
+        pages: editingChapter.pages
+      };
+
+      await api.updateChapter(editingChapter.id, updateData, adminPassword);
+      toast.success('Chapter updated successfully');
+      setEditingChapter(null);
+      await loadChaptersForManga(editingChapter.mangaId);
+      loadMangaList();
+    } catch (error) {
+      toast.error('Failed to update chapter');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMangaSelection = (mangaId) => {
+    setSelectedMangaIds(prev => 
+      prev.includes(mangaId) 
+        ? prev.filter(id => id !== mangaId)
+        : [...prev, mangaId]
+    );
+  };
+
+  const toggleChapterSelection = (chapterId) => {
+    setSelectedChapterIds(prev => 
+      prev.includes(chapterId) 
+        ? prev.filter(id => id !== chapterId)
+        : [...prev, chapterId]
+    );
+  };
+
   const handleSearch = (query) => {
     navigate(`/manga?search=${encodeURIComponent(query)}`);
   };
@@ -228,12 +508,14 @@ const AdminPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="bg-background border-red-primary/30"
+                    data-testid="admin-password-input"
                   />
                 </div>
                 <Button
                   type="submit"
                   className="w-full bg-red-primary hover:bg-red-secondary text-white"
                   disabled={loading}
+                  data-testid="admin-login-button"
                 >
                   {loading ? (
                     <>
@@ -256,17 +538,18 @@ const AdminPage = () => {
     <div className="min-h-screen bg-background">
       <Navbar onSearch={handleSearch} />
       
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-8">
           <span className="gradient-text">Admin Panel</span>
         </h1>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-8">
+        <div className="flex gap-4 mb-8 flex-wrap">
           <Button
             variant={activeTab === 'manga' ? 'default' : 'outline'}
             className={activeTab === 'manga' ? 'bg-red-primary hover:bg-red-secondary' : 'border-red-primary/30'}
             onClick={() => setActiveTab('manga')}
+            data-testid="tab-create-manga"
           >
             <BookOpen className="w-4 h-4 mr-2" />
             Create Manga
@@ -275,9 +558,28 @@ const AdminPage = () => {
             variant={activeTab === 'chapter' ? 'default' : 'outline'}
             className={activeTab === 'chapter' ? 'bg-red-primary hover:bg-red-secondary' : 'border-red-primary/30'}
             onClick={() => setActiveTab('chapter')}
+            data-testid="tab-add-chapter"
           >
             <FileImage className="w-4 h-4 mr-2" />
             Add Chapter
+          </Button>
+          <Button
+            variant={activeTab === 'manage' ? 'default' : 'outline'}
+            className={activeTab === 'manage' ? 'bg-red-primary hover:bg-red-secondary' : 'border-red-primary/30'}
+            onClick={() => setActiveTab('manage')}
+            data-testid="tab-manage-content"
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Manage Content
+          </Button>
+          <Button
+            variant={activeTab === 'statistics' ? 'default' : 'outline'}
+            className={activeTab === 'statistics' ? 'bg-red-primary hover:bg-red-secondary' : 'border-red-primary/30'}
+            onClick={() => setActiveTab('statistics')}
+            data-testid="tab-statistics"
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Statistics
           </Button>
         </div>
 
@@ -298,6 +600,7 @@ const AdminPage = () => {
                     onChange={(e) => setMangaTitle(e.target.value)}
                     placeholder="Manga title"
                     className="bg-background border-red-primary/30"
+                    data-testid="manga-title-input"
                   />
                 </div>
 
@@ -310,6 +613,7 @@ const AdminPage = () => {
                     placeholder="Manga description"
                     rows={4}
                     className="bg-background border-red-primary/30"
+                    data-testid="manga-description-input"
                   />
                 </div>
 
@@ -321,6 +625,7 @@ const AdminPage = () => {
                     onChange={(e) => setMangaAuthor(e.target.value)}
                     placeholder="Author name"
                     className="bg-background border-red-primary/30"
+                    data-testid="manga-author-input"
                   />
                 </div>
 
@@ -331,6 +636,7 @@ const AdminPage = () => {
                     onChange={(e) => setMangaGenres(e.target.value)}
                     placeholder="Action, Adventure, Fantasy"
                     className="bg-background border-red-primary/30"
+                    data-testid="manga-genres-input"
                   />
                 </div>
 
@@ -340,6 +646,7 @@ const AdminPage = () => {
                     value={mangaStatus}
                     onChange={(e) => setMangaStatus(e.target.value)}
                     className="w-full px-3 py-2 rounded-md bg-background border border-red-primary/30 text-foreground"
+                    data-testid="manga-status-select"
                   >
                     <option value="Ongoing">Ongoing</option>
                     <option value="Completed">Completed</option>
@@ -353,6 +660,7 @@ const AdminPage = () => {
                     accept="image/*"
                     onChange={handleCoverChange}
                     className="bg-background border-red-primary/30"
+                    data-testid="manga-cover-input"
                   />
                   {mangaCoverPreview && (
                     <div className="mt-4">
@@ -369,6 +677,7 @@ const AdminPage = () => {
                   type="submit"
                   className="w-full bg-red-primary hover:bg-red-secondary text-white"
                   disabled={loading}
+                  data-testid="create-manga-button"
                 >
                   {loading ? (
                     <>
@@ -403,6 +712,7 @@ const AdminPage = () => {
                     value={selectedMangaId}
                     onChange={(e) => setSelectedMangaId(e.target.value)}
                     className="w-full px-3 py-2 rounded-md bg-background border border-red-primary/30 text-foreground"
+                    data-testid="chapter-manga-select"
                   >
                     <option value="">Choose a manga...</option>
                     {allManga.map((manga) => (
@@ -423,6 +733,7 @@ const AdminPage = () => {
                     onChange={(e) => setChapterNumber(e.target.value)}
                     placeholder="1 or 1.5"
                     className="bg-background border-red-primary/30"
+                    data-testid="chapter-number-input"
                   />
                 </div>
 
@@ -433,6 +744,7 @@ const AdminPage = () => {
                     onChange={(e) => setChapterTitle(e.target.value)}
                     placeholder="Chapter title (optional)"
                     className="bg-background border-red-primary/30"
+                    data-testid="chapter-title-input"
                   />
                 </div>
 
@@ -444,20 +756,33 @@ const AdminPage = () => {
                     multiple
                     onChange={handlePagesChange}
                     className="bg-background border-red-primary/30"
+                    data-testid="chapter-pages-input"
                   />
                   {chapterPagesPreview.length > 0 && (
                     <div className="mt-4">
                       <p className="text-sm text-muted-foreground mb-2">
                         {chapterPagesPreview.length} pages loaded
                       </p>
-                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-96 overflow-y-auto">
+                      <div className="grid grid-cols-3 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto">
                         {chapterPagesPreview.map((preview, index) => (
-                          <img
-                            key={index}
-                            src={preview}
-                            alt={`Page ${index + 1}`}
-                            className="w-full aspect-[3/4] object-cover rounded border border-red-primary/30"
-                          />
+                          <div key={index} className="relative group">
+                            <img
+                              src={preview}
+                              alt={`Page ${index + 1}`}
+                              className="w-full aspect-[3/4] object-cover rounded border border-red-primary/30"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removePage(index)}
+                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              data-testid={`remove-page-${index}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            <span className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              {index + 1}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -468,6 +793,7 @@ const AdminPage = () => {
                   type="submit"
                   className="w-full bg-red-primary hover:bg-red-secondary text-white"
                   disabled={loading}
+                  data-testid="create-chapter-button"
                 >
                   {loading ? (
                     <>
@@ -484,6 +810,413 @@ const AdminPage = () => {
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {/* Manage Content Tab */}
+        {activeTab === 'manage' && (
+          <div className="space-y-6">
+            {/* Bulk Actions */}
+            {(selectedMangaIds.length > 0 || selectedChapterIds.length > 0) && (
+              <Card className="bg-red-primary/10 border-red-primary/30">
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="text-sm">
+                      {selectedMangaIds.length > 0 && (
+                        <span className="mr-4">{selectedMangaIds.length} manga selected</span>
+                      )}
+                      {selectedChapterIds.length > 0 && (
+                        <span>{selectedChapterIds.length} chapters selected</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {selectedMangaIds.length > 0 && (
+                        <Button
+                          onClick={handleBulkDeleteManga}
+                          variant="destructive"
+                          size="sm"
+                          disabled={loading}
+                          data-testid="bulk-delete-manga-button"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Manga
+                        </Button>
+                      )}
+                      {selectedChapterIds.length > 0 && (
+                        <Button
+                          onClick={handleBulkDeleteChapters}
+                          variant="destructive"
+                          size="sm"
+                          disabled={loading}
+                          data-testid="bulk-delete-chapters-button"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Chapters
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => {
+                          setSelectedMangaIds([]);
+                          setSelectedChapterIds([]);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Manga List */}
+            <Card className="bg-card border-red-primary/20">
+              <CardHeader>
+                <CardTitle>All Manga</CardTitle>
+                <CardDescription>Manage your manga library</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {mangaList.map((manga) => (
+                    <div key={manga.id} className="border border-red-primary/20 rounded-lg p-4">
+                      <div className="flex items-start gap-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedMangaIds.includes(manga.id)}
+                          onChange={() => toggleMangaSelection(manga.id)}
+                          className="mt-1"
+                          data-testid={`manga-checkbox-${manga.id}`}
+                        />
+                        <img
+                          src={manga.coverImage}
+                          alt={manga.title}
+                          className="w-16 h-20 object-cover rounded"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg">{manga.title}</h3>
+                          <p className="text-sm text-muted-foreground">{manga.author}</p>
+                          <p className="text-sm text-muted-foreground">{manga.totalChapters} chapters</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleMangaExpand(manga.id)}
+                            data-testid={`expand-manga-${manga.id}`}
+                          >
+                            {expandedManga === manga.id ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEditManga(manga)}
+                            data-testid={`edit-manga-${manga.id}`}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteManga(manga.id)}
+                            disabled={loading}
+                            data-testid={`delete-manga-${manga.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Chapters List */}
+                      {expandedManga === manga.id && mangaChapters[manga.id] && (
+                        <div className="mt-4 ml-20 space-y-2">
+                          <h4 className="font-semibold mb-2">Chapters:</h4>
+                          {mangaChapters[manga.id].length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No chapters yet</p>
+                          ) : (
+                            mangaChapters[manga.id].map((chapter) => (
+                              <div
+                                key={chapter.id}
+                                className="flex items-center justify-between bg-background p-2 rounded border border-red-primary/10"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedChapterIds.includes(chapter.id)}
+                                    onChange={() => toggleChapterSelection(chapter.id)}
+                                    data-testid={`chapter-checkbox-${chapter.id}`}
+                                  />
+                                  <span className="text-sm">
+                                    Chapter {chapter.chapterNumber}: {chapter.title || 'Untitled'}
+                                  </span>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => startEditChapter(chapter, manga.id)}
+                                    data-testid={`edit-chapter-${chapter.id}`}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDeleteChapter(chapter.id, manga.id)}
+                                    disabled={loading}
+                                    data-testid={`delete-chapter-${chapter.id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Statistics Tab */}
+        {activeTab === 'statistics' && statistics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-card border-red-primary/20">
+              <CardHeader>
+                <CardTitle>Total Manga</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-4xl font-bold text-red-primary">{statistics.totalManga}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-red-primary/20">
+              <CardHeader>
+                <CardTitle>Total Chapters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-4xl font-bold text-red-primary">{statistics.totalChapters}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-red-primary/20">
+              <CardHeader>
+                <CardTitle>Avg Chapters/Manga</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-4xl font-bold text-red-primary">{statistics.averageChaptersPerManga}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-red-primary/20 md:col-span-3">
+              <CardHeader>
+                <CardTitle>Recent Manga</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {statistics.recentManga.map((manga) => (
+                    <div key={manga.id} className="flex justify-between items-center p-2 bg-background rounded">
+                      <span>{manga.title}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(manga.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Edit Manga Modal */}
+        {editingManga && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-2xl bg-card border-red-primary/20 max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Edit Manga</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdateManga} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={editingManga.title}
+                      onChange={(e) => setEditingManga({...editingManga, title: e.target.value})}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={editingManga.description}
+                      onChange={(e) => setEditingManga({...editingManga, description: e.target.value})}
+                      rows={4}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Author</Label>
+                    <Input
+                      value={editingManga.author}
+                      onChange={(e) => setEditingManga({...editingManga, author: e.target.value})}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Genres (comma separated)</Label>
+                    <Input
+                      value={editingManga.genres}
+                      onChange={(e) => setEditingManga({...editingManga, genres: e.target.value})}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <select
+                      value={editingManga.status}
+                      onChange={(e) => setEditingManga({...editingManga, status: e.target.value})}
+                      className="w-full px-3 py-2 rounded-md bg-background border border-red-primary/30 text-foreground"
+                    >
+                      <option value="Ongoing">Ongoing</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Update Cover Image (optional)</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const base64 = await fileToBase64(file);
+                          setEditingManga({...editingManga, coverImage: base64});
+                        }
+                      }}
+                      className="bg-background border-red-primary/30"
+                    />
+                    {editingManga.currentCover && (
+                      <img src={editingManga.currentCover} alt="Current cover" className="max-w-xs rounded" />
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-red-primary hover:bg-red-secondary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Updating...' : 'Update Manga'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditingManga(null)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Edit Chapter Modal */}
+        {editingChapter && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-4xl bg-card border-red-primary/20 max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Edit Chapter</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdateChapter} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Chapter Number</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={editingChapter.chapterNumber}
+                      onChange={(e) => setEditingChapter({...editingChapter, chapterNumber: e.target.value})}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter Title</Label>
+                    <Input
+                      value={editingChapter.title}
+                      onChange={(e) => setEditingChapter({...editingChapter, title: e.target.value})}
+                      className="bg-background border-red-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter Pages ({editingChapter.pages.length} pages)</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={addPagesToEditChapter}
+                      className="bg-background border-red-primary/30"
+                    />
+                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-96 overflow-y-auto mt-2">
+                      {editingChapter.pagesPreview.map((page, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={page}
+                            alt={`Page ${index + 1}`}
+                            className="w-full aspect-[3/4] object-cover rounded border border-red-primary/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeEditPageAtIndex(index)}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <span className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1 rounded">
+                            {index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-red-primary hover:bg-red-secondary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Updating...' : 'Update Chapter'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditingChapter(null)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
