@@ -225,7 +225,11 @@ export const ReaderView = ({ imageUrls, currentPage, onPageChange, onExit }) => 
       <div
         ref={containerRef}
         className="w-full h-full overflow-y-auto overflow-x-hidden"
-        style={{ scrollBehavior: 'smooth' }}
+        style={{ 
+          scrollBehavior: 'smooth',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}
       >
         {/* All Images in Vertical Strip */}
         <div className="w-full">
