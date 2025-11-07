@@ -158,7 +158,7 @@ const Navbar = ({ onSearch }) => {
 
       {/* Mobile Menu Sidebar - Only extends to content height */}
       <div
-        className={`fixed right-0 w-56 sm:w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden rounded-bl-3xl ${
+        className={`fixed right-0 w-56 sm:w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden rounded-bl-2xl ${
           isMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ top: '64px', height: 'auto', maxHeight: 'calc(100vh - 64px)' }}
@@ -218,7 +218,7 @@ const Navbar = ({ onSearch }) => {
           </div>
           
           {/* Bottom red line */}
-          <div className="border-b-2 border-red-primary/30"></div>
+          <div className="border-b-2 border-red-primary/30 rounded-bl-2xl"></div>
         </div>
       </div>
     </>
