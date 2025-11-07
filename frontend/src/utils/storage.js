@@ -107,14 +107,48 @@ export const storage = {
   }
 };
 
-// Helper function to convert file to base64
-export const fileToBase64 = (file) => {
+// Helper function to convert file to base64 with compression
+export const fileToBase64 = (file, maxWidth = 1200, quality = 0.85) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      // Extract base64 data (remove data:image/...;base64, prefix)
-      const base64 = reader.result.split(',')[1];
-      resolve(base64);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas for compression
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Resize if image is too large
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to base64 with compression
+        canvas.toBlob(
+          (blob) => {
+            const compressedReader = new FileReader();
+            compressedReader.onload = () => {
+              // Extract base64 data (remove data:image/...;base64, prefix)
+              const base64 = compressedReader.result.split(',')[1];
+              resolve(base64);
+            };
+            compressedReader.onerror = (error) => reject(error);
+            compressedReader.readAsDataURL(blob);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = (error) => reject(error);
+      img.src = e.target.result;
     };
     reader.onerror = (error) => reject(error);
     reader.readAsDataURL(file);
