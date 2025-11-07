@@ -17,6 +17,15 @@ const AdminPage = () => {
   const [password, setPassword] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Helper function to convert base64 to data URL if needed
+  const getImageSrc = (coverImage) => {
+    if (!coverImage) return '/manga-reader.png';
+    if (coverImage.startsWith('data:')) return coverImage;
+    if (coverImage.startsWith('http')) return coverImage;
+    // Assume it's base64 without prefix
+    return `data:image/jpeg;base64,${coverImage}`;
+  };
   
   // Manga form state
   const [mangaTitle, setMangaTitle] = useState('');
@@ -896,9 +905,10 @@ const AdminPage = () => {
                           data-testid={`manga-checkbox-${manga.id}`}
                         />
                         <img
-                          src={manga.coverImage}
+                          src={getImageSrc(manga.coverImage)}
                           alt={manga.title}
                           className="w-16 h-20 object-cover rounded"
+                          data-testid={`manga-cover-${manga.id}`}
                         />
                         <div className="flex-1">
                           <h3 className="font-bold text-lg">{manga.title}</h3>
@@ -1116,7 +1126,7 @@ const AdminPage = () => {
                       className="bg-background border-red-primary/30"
                     />
                     {editingManga.currentCover && (
-                      <img src={editingManga.currentCover} alt="Current cover" className="max-w-xs rounded" />
+                      <img src={getImageSrc(editingManga.currentCover)} alt="Current cover" className="max-w-xs rounded" />
                     )}
                   </div>
 
