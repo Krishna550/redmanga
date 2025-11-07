@@ -18,8 +18,12 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app
-app = FastAPI()
+# Create the main app with increased body size limit
+app = FastAPI(
+    title="Red Manga API",
+    description="Manga reader and management API",
+    version="1.0.0"
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -137,28 +141,42 @@ async def create_manga(manga: MangaCreate, authorization: str = Header(None)):
 @api_router.post("/admin/chapter", response_model=Chapter)
 async def create_chapter(chapter: ChapterCreate, authorization: str = Header(None)):
     """Add a chapter to manga (Admin only)"""
-    verify_admin(authorization)
-    
-    # Verify manga exists
-    manga = await db.manga.find_one({"id": chapter.mangaId}, {"_id": 0})
-    if not manga:
-        raise HTTPException(status_code=404, detail="Manga not found")
-    
-    # Create chapter
-    chapter_obj = Chapter(**chapter.model_dump())
-    doc = chapter_obj.model_dump()
-    doc['createdAt'] = doc['createdAt'].isoformat()
-    
-    await db.chapters.insert_one(doc)
-    
-    # Update manga's total chapters count
-    chapter_count = await db.chapters.count_documents({"mangaId": chapter.mangaId})
-    await db.manga.update_one(
-        {"id": chapter.mangaId},
-        {"$set": {"totalChapters": chapter_count}}
-    )
-    
-    return chapter_obj
+    try:
+        verify_admin(authorization)
+        
+        # Verify manga exists
+        manga = await db.manga.find_one({"id": chapter.mangaId}, {"_id": 0})
+        if not manga:
+            raise HTTPException(status_code=404, detail="Manga not found")
+        
+        # Validate chapter data
+        if not chapter.pages or len(chapter.pages) == 0:
+            raise HTTPException(status_code=400, detail="Chapter must have at least one page")
+        
+        if len(chapter.pages) > 100:
+            raise HTTPException(status_code=400, detail="Chapter cannot have more than 100 pages")
+        
+        # Create chapter
+        chapter_obj = Chapter(**chapter.model_dump())
+        doc = chapter_obj.model_dump()
+        doc['createdAt'] = doc['createdAt'].isoformat()
+        
+        await db.chapters.insert_one(doc)
+        
+        # Update manga's total chapters count
+        chapter_count = await db.chapters.count_documents({"mangaId": chapter.mangaId})
+        await db.manga.update_one(
+            {"id": chapter.mangaId},
+            {"$set": {"totalChapters": chapter_count}}
+        )
+        
+        logger.info(f"Created chapter {chapter_obj.chapterNumber} for manga {chapter.mangaId}")
+        return chapter_obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create chapter: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create chapter: {str(e)}")
 
 
 @api_router.delete("/admin/manga/{manga_id}")
@@ -415,16 +433,18 @@ async def get_featured_manga(limit: int = 6):
     return manga_list
 
 
-# Include the router in the main app
-app.include_router(api_router)
-
+# Add CORS middleware FIRST
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=3600,
 )
+
+# Include the router in the main app
+app.include_router(api_router)
 
 # Configure logging
 logging.basicConfig(
