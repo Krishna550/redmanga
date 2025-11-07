@@ -569,7 +569,7 @@ const AdminPage = () => {
             data-testid="tab-create-manga"
           >
             <BookOpen className="w-4 h-4 mr-2" />
-            Create Manga
+            Add Manga
           </Button>
           <Button
             variant={activeTab === 'chapter' ? 'default' : 'outline'}
@@ -604,7 +604,7 @@ const AdminPage = () => {
         {activeTab === 'manga' && (
           <Card className="bg-card border-red-primary/20">
             <CardHeader>
-              <CardTitle>Create New Manga</CardTitle>
+              <CardTitle>Add New Manga</CardTitle>
               <CardDescription>Add a new manga to the library</CardDescription>
             </CardHeader>
             <CardContent>
@@ -704,7 +704,7 @@ const AdminPage = () => {
                   ) : (
                     <>
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Manga
+                      Add Manga
                     </>
                   )}
                 </Button>
