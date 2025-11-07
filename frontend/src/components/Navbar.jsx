@@ -158,18 +158,18 @@ const Navbar = ({ onSearch }) => {
 
       {/* Mobile Menu Sidebar - Only extends to content height */}
       <div
-        className={`fixed right-0 w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed right-0 w-56 sm:w-64 glass-strong border-l border-red-primary/30 shadow-2xl shadow-red-primary/10 z-50 transform transition-transform duration-300 ease-in-out md:hidden rounded-bl-3xl rounded-tl-3xl ${
           isMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ top: '64px', height: 'auto', maxHeight: 'calc(100vh - 64px)' }}
       >
         <div className="flex flex-col h-full">
           {/* Menu items - No icons, just text, auto height */}
-          <div className="px-4 pt-4 pb-6 space-y-1 flex-1">
+          <div className="px-3 sm:px-4 pt-6 pb-6 space-y-1 flex-1">
             <Link to="/" onClick={() => setIsMenuOpen(false)}>
               <Button
                 variant="ghost"
-                className={`w-full justify-start text-base py-6 transition-all ${
+                className={`w-full justify-start text-sm sm:text-base py-5 sm:py-6 transition-all rounded-lg ${
                   isActive('/') 
                     ? 'text-red-primary bg-red-primary/15 hover:bg-red-primary/20 border-l-2 border-red-primary' 
                     : 'text-foreground hover:text-red-primary hover:bg-red-primary/5 hover:border-l-2 hover:border-red-primary/50'
@@ -182,7 +182,7 @@ const Navbar = ({ onSearch }) => {
             <Link to="/manga" onClick={() => setIsMenuOpen(false)}>
               <Button
                 variant="ghost"
-                className={`w-full justify-start text-base py-6 transition-all ${
+                className={`w-full justify-start text-sm sm:text-base py-5 sm:py-6 transition-all rounded-lg ${
                   isActive('/manga') 
                     ? 'text-red-primary bg-red-primary/15 hover:bg-red-primary/20 border-l-2 border-red-primary' 
                     : 'text-foreground hover:text-red-primary hover:bg-red-primary/5 hover:border-l-2 hover:border-red-primary/50'
@@ -195,7 +195,7 @@ const Navbar = ({ onSearch }) => {
             <Link to="/history" onClick={() => setIsMenuOpen(false)}>
               <Button
                 variant="ghost"
-                className={`w-full justify-start text-base py-6 transition-all ${
+                className={`w-full justify-start text-sm sm:text-base py-5 sm:py-6 transition-all rounded-lg ${
                   isActive('/history') 
                     ? 'text-red-primary bg-red-primary/15 hover:bg-red-primary/20 border-l-2 border-red-primary' 
                     : 'text-foreground hover:text-red-primary hover:bg-red-primary/5 hover:border-l-2 hover:border-red-primary/50'
@@ -208,7 +208,7 @@ const Navbar = ({ onSearch }) => {
             <a href={telegramUrl} target="_blank" rel="noopener noreferrer">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-base py-6 text-foreground hover:text-red-primary hover:bg-red-primary/5 hover:border-l-2 hover:border-red-primary/50 transition-all"
+                className="w-full justify-start text-sm sm:text-base py-5 sm:py-6 text-foreground hover:text-red-primary hover:bg-red-primary/5 hover:border-l-2 hover:border-red-primary/50 transition-all rounded-lg"
                 onClick={() => setIsMenuOpen(false)}
                 data-testid="mobile-nav-telegram"
               >
