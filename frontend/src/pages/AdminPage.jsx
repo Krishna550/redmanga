@@ -744,10 +744,10 @@ const AdminPage = () => {
                   <Label>Chapter Number</Label>
                   <Input
                     type="number"
-                    step="0.1"
+                    step="1"
                     value={chapterNumber}
                     onChange={(e) => setChapterNumber(e.target.value)}
-                    placeholder="1 or 1.5 (optional)"
+                    placeholder="1 or 1.5"
                     className="bg-background border-red-primary/30"
                     data-testid="chapter-number-input"
                   />
