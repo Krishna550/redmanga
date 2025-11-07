@@ -1165,10 +1165,10 @@ const AdminPage = () => {
                     <Label>Chapter Number</Label>
                     <Input
                       type="number"
-                      step="1"
+                      step="0.1"
                       value={editingChapter.chapterNumber || ''}
                       onChange={(e) => setEditingChapter({...editingChapter, chapterNumber: e.target.value})}
-                      placeholder="1 or 1.5"
+                      placeholder="1 or 1.5 (optional)"
                       className="bg-background border-red-primary/30"
                     />
                   </div>
@@ -1195,9 +1195,14 @@ const AdminPage = () => {
                       {editingChapter.pagesPreview.map((page, index) => (
                         <div key={index} className="relative group">
                           <img
-                            src={page}
+                            src={getImageSrc(page)}
                             alt={`Page ${index + 1}`}
                             className="w-full aspect-[3/4] object-cover rounded border border-red-primary/30"
+                            onError={(e) => {
+                              console.error(`Failed to load page ${index + 1}`);
+                              e.target.style.backgroundColor = '#333';
+                              e.target.style.minHeight = '120px';
+                            }}
                           />
                           <button
                             type="button"
