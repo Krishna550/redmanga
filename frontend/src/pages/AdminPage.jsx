@@ -237,6 +237,8 @@ const AdminPage = () => {
     }
 
     setLoading(true);
+    const uploadToast = toast.loading(`Uploading chapter with ${chapterPages.length} pages...`);
+    
     try {
       const chapterData = {
         mangaId: selectedMangaId,
@@ -246,7 +248,7 @@ const AdminPage = () => {
       };
 
       await api.createChapter(chapterData, adminPassword);
-      toast.success('Chapter created successfully');
+      toast.success('Chapter created successfully', { id: uploadToast });
       
       // Reset form
       setSelectedMangaId('');
@@ -255,10 +257,16 @@ const AdminPage = () => {
       setChapterPages([]);
       setChapterPagesPreview([]);
       
-      // Reload manga list
-      loadManga();
+      // Reload manga list to reflect new chapter count
+      await loadManga();
+      
+      // If on manage tab, reload that too
+      if (activeTab === 'manage') {
+        await loadMangaList();
+      }
     } catch (error) {
-      toast.error(error.message || 'Failed to create chapter');
+      console.error('Chapter creation error:', error);
+      toast.error(error.message || 'Failed to create chapter', { id: uploadToast });
     } finally {
       setLoading(false);
     }
