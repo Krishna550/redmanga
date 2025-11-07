@@ -397,7 +397,7 @@ const ReaderPage = () => {
                 {manga.title}
               </div>
               <div className="text-xs text-muted-foreground">
-                Chapter {chapter.chapterNumber}: {chapter.title}
+                Chapter {chapter.chapterNumber} {chapter.title}
               </div>
             </div>
           </div>
