@@ -105,15 +105,23 @@ const HistoryPage = () => {
                 <Card className="p-4 hover-lift bg-card border-red-primary/20 hover:border-red-primary/50 transition-all">
                   <div className="flex gap-4">
                     {/* Cover Image */}
-                    <div className="flex-shrink-0 w-24 h-32 rounded overflow-hidden">
-                      <img
-                        src={item.coverImage}
-                        alt={item.mangaTitle}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = '/manga-reader.png';
-                        }}
-                      />
+                    <div className="flex-shrink-0 w-24 h-32 rounded overflow-hidden bg-card">
+                      {item.coverImage ? (
+                        <img
+                          src={item.coverImage}
+                          alt={item.mangaTitle}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-red-primary/10"><BookOpen class="w-8 h-8 text-red-primary" /></div>';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-red-primary/10">
+                          <BookOpen className="w-8 h-8 text-red-primary" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Info */}
