@@ -151,3 +151,12 @@ body::after {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Prevent duplicate progress bars in PWA mode */
+@media all and (display-mode: standalone) {
+  /* Hide any duplicate loading indicators when in PWA mode */
+  body::before[class*="loading"],
+  div[class*="loading-bar"]:not(:last-of-type) {
+    display: none !important;
+  }
+}
