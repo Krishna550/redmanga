@@ -381,9 +381,16 @@ const ReaderPage = () => {
 
   return (
     <div
-      className="relative w-screen h-screen bg-background overflow-hidden"
+      className="reader-container relative w-screen h-screen bg-background overflow-hidden"
       onMouseMove={handleMouseMove}
       onClick={handleContainerClick}
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}
     >
       {readingMode === 'longstrip' ? (
         /* Long Strip Mode */
@@ -632,9 +639,11 @@ const ReaderPage = () => {
 
       {/* Top Controls Bar */}
       <div
-        className={`fixed top-0 left-0 right-0 glass-strong transition-all duration-300 z-40 border-b border-red-primary/20 ${
+        data-reader-topbar="true"
+        className={`fixed top-0 left-0 right-0 glass-strong transition-all duration-300 z-40 ${
           showControls ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
         }`}
+        style={{ border: 'none', boxShadow: 'none' }}
       >
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
