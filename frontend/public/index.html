@@ -14,16 +14,36 @@
         <title>Red Manga</title>
         <style>
             /* Hide browser UI elements that might cause duplicate bars */
-            body {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
                 -webkit-touch-callout: none;
                 -webkit-user-select: none;
                 overscroll-behavior-y: none;
+                position: relative;
             }
+            
+            /* Remove any pseudo-elements on body that could create lines */
+            body::before,
+            body::after {
+                content: none !important;
+                display: none !important;
+            }
+            
             /* Ensure no duplicate progress bars */
             ::-webkit-progress-bar,
             ::-webkit-progress-value,
             progress {
                 display: none !important;
+            }
+            
+            /* Hide any browser status/loading bars */
+            @media (display-mode: standalone) {
+                body {
+                    padding-top: 0 !important;
+                    margin-top: 0 !important;
+                }
             }
         </style>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
