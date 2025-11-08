@@ -160,3 +160,22 @@ body::after {
     display: none !important;
   }
 }
+
+/* Prevent duplicate top bars in reader */
+.glass-strong {
+  box-shadow: none !important;
+}
+
+/* Ensure single border on controls */
+div[class*="glass-strong"] {
+  border-bottom-width: 1px !important;
+}
+
+/* Hide browser progress bar when in fullscreen or standalone */
+@media all and (display-mode: fullscreen),
+       all and (display-mode: standalone) {
+  ::-webkit-progress-bar,
+  ::-webkit-progress-value {
+    display: none !important;
+  }
+}
