@@ -170,16 +170,20 @@ const ReaderPage = () => {
   };
 
   const handleMouseMove = () => {
-    if (!isFullscreen) {
+    if (!isFullscreen && !isDragging) {
       setShowControls(true);
     }
   };
 
   const handleContainerClick = (e) => {
-    if (isFullscreen) {
-      if (e.target.closest('button') || e.target.closest('[role="button"]')) {
-        return;
-      }
+    // Don't handle clicks when dragging or on buttons
+    if (isDragging) return;
+    if (e.target.closest('button') || e.target.closest('[role="button"]')) {
+      return;
+    }
+    
+    // Single tap shows/hides controls (only if not zoomed or in fullscreen)
+    if (isFullscreen || (readingMode === 'longstrip' && longstripScale === 1)) {
       setShowControls(!showControls);
     }
   };
@@ -235,14 +239,14 @@ const ReaderPage = () => {
 
   // Double tap to zoom for longstrip mode (entire viewport zoom)
   const handleLongstripDoubleTap = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTap.current;
     
     if (tapLength < 300 && tapLength > 0) {
       // Double tap detected - zoom entire viewport
+      e.preventDefault();
+      e.stopPropagation();
+      
       if (longstripScale > 1) {
         // Zoom out
         setLongstripScale(1);
@@ -251,14 +255,19 @@ const ReaderPage = () => {
         // Zoom in
         setLongstripScale(2);
         // Center zoom on tap location relative to viewport
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        setLongstripPosition({ 
-          x: -(x * 2 - rect.width / 2), 
-          y: -(y * 2 - rect.height / 2) 
-        });
+        const container = containerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          setLongstripPosition({ 
+            x: -(x * 2 - rect.width / 2), 
+            y: -(y * 2 - rect.height / 2) 
+          });
+        }
       }
+    } else {
+      // Single tap - handled by handleContainerClick
     }
     lastTap.current = currentTime;
   };
@@ -288,22 +297,32 @@ const ReaderPage = () => {
   const handleLongstripMouseDown = (e) => {
     if (longstripScale > 1) {
       e.preventDefault();
+      e.stopPropagation();
       setIsDragging(true);
-      setDragStart({ x: e.clientX - longstripPosition.x, y: e.clientY - longstripPosition.y });
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      setDragStart({ x: clientX - longstripPosition.x, y: clientY - longstripPosition.y });
     }
   };
 
   const handleLongstripMouseMove = (e) => {
     if (isDragging && longstripScale > 1) {
       e.preventDefault();
+      e.stopPropagation();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       setLongstripPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
+        x: clientX - dragStart.x,
+        y: clientY - dragStart.y
       });
     }
   };
 
-  const handleLongstripMouseUp = () => {
+  const handleLongstripMouseUp = (e) => {
+    if (isDragging) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setIsDragging(false);
   };
 
@@ -371,22 +390,31 @@ const ReaderPage = () => {
         <div
           ref={containerRef}
           className="w-full h-full overflow-hidden relative"
-          onClick={handleLongstripDoubleTap}
+          onClick={(e) => {
+            if (!isDragging && longstripScale === 1) {
+              handleLongstripDoubleTap(e);
+            }
+          }}
           onMouseDown={handleLongstripMouseDown}
           onMouseMove={handleLongstripMouseMove}
           onMouseUp={handleLongstripMouseUp}
           onMouseLeave={handleLongstripMouseUp}
+          onTouchStart={handleLongstripMouseDown}
+          onTouchMove={handleLongstripMouseMove}
+          onTouchEnd={handleLongstripMouseUp}
           style={{ 
-            cursor: longstripScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+            cursor: longstripScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+            touchAction: longstripScale > 1 ? 'none' : 'auto'
           }}
         >
           <div 
             className="w-full h-full overflow-y-auto overflow-x-hidden"
             style={{ 
-              scrollBehavior: 'smooth',
+              scrollBehavior: longstripScale > 1 ? 'auto' : 'smooth',
               transform: `scale(${longstripScale}) translate(${longstripPosition.x / longstripScale}px, ${longstripPosition.y / longstripScale}px)`,
               transformOrigin: 'top left',
-              transition: isDragging ? 'none' : 'transform 0.3s ease'
+              transition: isDragging ? 'none' : 'transform 0.3s ease',
+              pointerEvents: longstripScale > 1 ? 'none' : 'auto'
             }}
           >
             <div className="w-full">
@@ -414,6 +442,7 @@ const ReaderPage = () => {
                         userSelect: 'none',
                         pointerEvents: 'none'
                       }}
+                      draggable={false}
                       onError={(e) => {
                         console.error(`Failed to load page ${index + 1}`);
                         e.target.style.backgroundColor = '#1a1a1a';
