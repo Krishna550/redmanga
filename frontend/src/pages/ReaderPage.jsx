@@ -23,9 +23,11 @@ const ReaderPage = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [zoomedImageIndex, setZoomedImageIndex] = useState(null);
   const [longstripScale, setLongstripScale] = useState(1);
   const [longstripPosition, setLongstripPosition] = useState({ x: 0, y: 0 });
+  const [isPinching, setIsPinching] = useState(false);
+  const [initialPinchDistance, setInitialPinchDistance] = useState(0);
+  const [initialScale, setInitialScale] = useState(1);
   const controlsTimeoutRef = useRef(null);
   const containerRef = useRef(null);
   const imageRefs = useRef([]);
@@ -170,20 +172,20 @@ const ReaderPage = () => {
   };
 
   const handleMouseMove = () => {
-    if (!isFullscreen && !isDragging) {
+    if (!isFullscreen && !isDragging && !isPinching) {
       setShowControls(true);
     }
   };
 
   const handleContainerClick = (e) => {
-    // Don't handle clicks when dragging or on buttons
-    if (isDragging) return;
+    // Don't handle clicks when dragging/pinching or on buttons
+    if (isDragging || isPinching) return;
     if (e.target.closest('button') || e.target.closest('[role="button"]')) {
       return;
     }
     
-    // Single tap shows/hides controls (only if not zoomed or in fullscreen)
-    if (isFullscreen || (readingMode === 'longstrip' && longstripScale === 1)) {
+    // Single tap shows/hides controls
+    if (isFullscreen || readingMode === 'longstrip') {
       setShowControls(!showControls);
     }
   };
@@ -222,13 +224,16 @@ const ReaderPage = () => {
       if (scale === 1) {
         setScale(2);
         // Center zoom on tap location
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        setPosition({ 
-          x: -(x * 2 - rect.width / 2), 
-          y: -(y * 2 - rect.height / 2) 
-        });
+        const container = containerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          setPosition({ 
+            x: -(x * 2 - rect.width / 2), 
+            y: -(y * 2 - rect.height / 2) 
+          });
+        }
       } else {
         setScale(1);
         setPosition({ x: 0, y: 0 });
@@ -237,39 +242,79 @@ const ReaderPage = () => {
     lastTap.current = currentTime;
   };
 
-  // Double tap to zoom for longstrip mode (entire viewport zoom)
-  const handleLongstripDoubleTap = (e) => {
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTap.current;
-    
-    if (tapLength < 300 && tapLength > 0) {
-      // Double tap detected - zoom entire viewport
+  // Calculate distance between two touch points
+  const getTouchDistance = (touches) => {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Get center point between two touches
+  const getTouchCenter = (touches) => {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  // Pinch to zoom for longstrip mode
+  const handlePinchStart = (e) => {
+    if (e.touches && e.touches.length === 2) {
       e.preventDefault();
-      e.stopPropagation();
+      setIsPinching(true);
+      const distance = getTouchDistance(e.touches);
+      setInitialPinchDistance(distance);
+      setInitialScale(longstripScale);
+    }
+  };
+
+  const handlePinchMove = (e) => {
+    if (isPinching && e.touches && e.touches.length === 2) {
+      e.preventDefault();
+      const distance = getTouchDistance(e.touches);
+      const scaleChange = distance / initialPinchDistance;
+      let newScale = initialScale * scaleChange;
       
-      if (longstripScale > 1) {
-        // Zoom out
-        setLongstripScale(1);
-        setLongstripPosition({ x: 0, y: 0 });
-      } else {
-        // Zoom in
-        setLongstripScale(2);
-        // Center zoom on tap location relative to viewport
+      // Limit scale between 1 and 4
+      newScale = Math.max(1, Math.min(4, newScale));
+      
+      if (newScale !== longstripScale) {
+        setLongstripScale(newScale);
+        
+        // Adjust position to zoom towards pinch center
         const container = containerRef.current;
-        if (container) {
+        if (container && newScale > 1) {
           const rect = container.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          setLongstripPosition({ 
-            x: -(x * 2 - rect.width / 2), 
-            y: -(y * 2 - rect.height / 2) 
+          const center = getTouchCenter(e.touches);
+          const x = center.x - rect.left;
+          const y = center.y - rect.top;
+          
+          setLongstripPosition({
+            x: -(x * newScale - rect.width / 2),
+            y: -(y * newScale - rect.height / 2)
           });
+        } else if (newScale === 1) {
+          setLongstripPosition({ x: 0, y: 0 });
         }
       }
-    } else {
-      // Single tap - handled by handleContainerClick
     }
-    lastTap.current = currentTime;
+  };
+
+  const handlePinchEnd = (e) => {
+    if (isPinching) {
+      e.preventDefault();
+      setIsPinching(false);
+      
+      // Reset to normal if scale is close to 1
+      if (longstripScale < 1.1) {
+        setLongstripScale(1);
+        setLongstripPosition({ x: 0, y: 0 });
+      }
+    }
   };
 
   // Drag to pan when zoomed (paged mode)
@@ -398,20 +443,38 @@ const ReaderPage = () => {
           ref={containerRef}
           className="w-full h-full overflow-hidden relative"
           onClick={(e) => {
-            if (!isDragging && longstripScale === 1) {
-              handleLongstripDoubleTap(e);
+            if (!isDragging && !isPinching && longstripScale === 1) {
+              handleContainerClick(e);
             }
           }}
           onMouseDown={handleLongstripMouseDown}
           onMouseMove={handleLongstripMouseMove}
           onMouseUp={handleLongstripMouseUp}
           onMouseLeave={handleLongstripMouseUp}
-          onTouchStart={handleLongstripMouseDown}
-          onTouchMove={handleLongstripMouseMove}
-          onTouchEnd={handleLongstripMouseUp}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              handlePinchStart(e);
+            } else if (longstripScale > 1) {
+              handleLongstripMouseDown(e);
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2) {
+              handlePinchMove(e);
+            } else if (longstripScale > 1) {
+              handleLongstripMouseMove(e);
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (isPinching) {
+              handlePinchEnd(e);
+            } else {
+              handleLongstripMouseUp(e);
+            }
+          }}
           style={{ 
             cursor: longstripScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-            touchAction: longstripScale > 1 ? 'none' : 'auto'
+            touchAction: isPinching || longstripScale > 1 ? 'none' : 'auto'
           }}
         >
           <div 
