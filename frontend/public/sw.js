@@ -1,6 +1,6 @@
-const CACHE_NAME = 'manga-reader-v1';
-const STATIC_CACHE = 'manga-static-v1';
-const IMAGE_CACHE = 'manga-images-v1';
+const CACHE_NAME = 'manga-reader-v2';
+const STATIC_CACHE = 'manga-static-v2';
+const IMAGE_CACHE = 'manga-images-v2';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
