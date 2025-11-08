@@ -218,7 +218,7 @@ const ReaderPage = () => {
       if (scale === 1) {
         setScale(2);
         // Center zoom on tap location
-        const rect = e.currentTarget.getBoundingClientRect();
+        const rect = containerRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         setPosition({ 
@@ -233,8 +233,8 @@ const ReaderPage = () => {
     lastTap.current = currentTime;
   };
 
-  // Double tap to zoom for longstrip mode
-  const handleLongstripDoubleTap = (e, imageIndex) => {
+  // Double tap to zoom for longstrip mode (entire viewport zoom)
+  const handleLongstripDoubleTap = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -242,18 +242,16 @@ const ReaderPage = () => {
     const tapLength = currentTime - lastTap.current;
     
     if (tapLength < 300 && tapLength > 0) {
-      // Double tap detected
-      if (zoomedImageIndex === imageIndex && longstripScale > 1) {
+      // Double tap detected - zoom entire viewport
+      if (longstripScale > 1) {
         // Zoom out
-        setZoomedImageIndex(null);
         setLongstripScale(1);
         setLongstripPosition({ x: 0, y: 0 });
       } else {
         // Zoom in
-        setZoomedImageIndex(imageIndex);
         setLongstripScale(2);
-        // Center zoom on tap location
-        const rect = e.currentTarget.getBoundingClientRect();
+        // Center zoom on tap location relative to viewport
+        const rect = containerRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         setLongstripPosition({ 
@@ -286,9 +284,9 @@ const ReaderPage = () => {
     setIsDragging(false);
   };
 
-  // Drag to pan when zoomed (longstrip mode)
-  const handleLongstripMouseDown = (e, imageIndex) => {
-    if (zoomedImageIndex === imageIndex && longstripScale > 1) {
+  // Drag to pan when zoomed (longstrip mode - entire viewport)
+  const handleLongstripMouseDown = (e) => {
+    if (longstripScale > 1) {
       e.preventDefault();
       setIsDragging(true);
       setDragStart({ x: e.clientX - longstripPosition.x, y: e.clientY - longstripPosition.y });
@@ -372,109 +370,128 @@ const ReaderPage = () => {
         /* Long Strip Mode */
         <div
           ref={containerRef}
-          className="w-full h-full overflow-y-auto overflow-x-hidden"
-          style={{ scrollBehavior: 'smooth' }}
+          className="w-full h-full overflow-hidden relative"
+          onClick={handleLongstripDoubleTap}
+          onMouseDown={handleLongstripMouseDown}
+          onMouseMove={handleLongstripMouseMove}
+          onMouseUp={handleLongstripMouseUp}
+          onMouseLeave={handleLongstripMouseUp}
+          style={{ 
+            cursor: longstripScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+          }}
         >
-          <div className="w-full">
-            {chapter.pages.map((page, index) => {
-              // Format image src - add data URI prefix if it's just base64
-              const imageSrc = page.startsWith('data:') || page.startsWith('http') 
-                ? page 
-                : `data:image/jpeg;base64,${page}`;
-              
-              const isZoomed = zoomedImageIndex === index;
-              
-              return (
-                <div
-                  key={index}
-                  ref={(el) => (imageRefs.current[index] = el)}
-                  className="w-full relative"
-                  style={{ margin: 0, padding: 0, display: 'block' }}
-                >
-                  <img
-                    src={imageSrc}
-                    alt={`Page ${index + 1}`}
-                    className="w-full h-auto block"
-                    style={{
-                      margin: 0,
-                      padding: 0,
-                      display: 'block',
-                      userSelect: 'none',
-                      transform: isZoomed ? `scale(${longstripScale}) translate(${longstripPosition.x / longstripScale}px, ${longstripPosition.y / longstripScale}px)` : 'none',
-                      transition: isDragging ? 'none' : 'transform 0.3s ease',
-                      cursor: isZoomed ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                      transformOrigin: 'center center'
-                    }}
-                    onClick={(e) => handleLongstripDoubleTap(e, index)}
-                    onMouseDown={(e) => handleLongstripMouseDown(e, index)}
-                    onMouseMove={handleLongstripMouseMove}
-                    onMouseUp={handleLongstripMouseUp}
-                    onMouseLeave={handleLongstripMouseUp}
-                    onError={(e) => {
-                      console.error(`Failed to load page ${index + 1}`);
-                      e.target.style.backgroundColor = '#1a1a1a';
-                      e.target.style.minHeight = '800px';
-                    }}
-                  />
-                </div>
-              );
-            })}
-            
-            {/* Chapter Navigation at the end */}
-            <div className="w-full bg-card border-t-2 border-red-primary/30 p-8">
-              <div className="max-w-2xl mx-auto">
-                <h3 className="text-2xl font-bold text-center mb-6 text-foreground">
-                  Chapter {chapter.chapterNumber} Complete
-                </h3>
+          <div 
+            className="w-full h-full overflow-y-auto overflow-x-hidden"
+            style={{ 
+              scrollBehavior: 'smooth',
+              transform: `scale(${longstripScale}) translate(${longstripPosition.x / longstripScale}px, ${longstripPosition.y / longstripScale}px)`,
+              transformOrigin: 'top left',
+              transition: isDragging ? 'none' : 'transform 0.3s ease'
+            }}
+          >
+            <div className="w-full">
+              {chapter.pages.map((page, index) => {
+                // Format image src - add data URI prefix if it's just base64
+                const imageSrc = page.startsWith('data:') || page.startsWith('http') 
+                  ? page 
+                  : `data:image/jpeg;base64,${page}`;
                 
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                  {previousChapter ? (
-                    <Button
-                      onClick={() => navigateToChapter(previousChapter.id)}
-                      className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
-                      size="lg"
-                    >
-                      <ChevronLeft className="w-5 h-5 mr-2" />
-                      Previous Chapter
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={navigateToMangaDetail}
-                      className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
-                      size="lg"
-                    >
-                      <Home className="w-5 h-5 mr-2" />
-                      Back to Manga
-                    </Button>
-                  )}
-                  
-                  {nextChapter ? (
-                    <Button
-                      onClick={() => navigateToChapter(nextChapter.id)}
-                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
-                      size="lg"
-                    >
-                      Next Chapter
-                      <ChevronRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={navigateToMangaDetail}
-                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
-                      size="lg"
-                    >
-                      <Home className="w-5 h-5 mr-2" />
-                      Back to Manga
-                    </Button>
-                  )}
-                </div>
-                
-                {nextChapter && (
-                  <div className="mt-6 text-center text-muted-foreground">
-                    <p className="text-sm">Next: Chapter {nextChapter.chapterNumber}</p>
-                    <p className="text-xs">{nextChapter.title}</p>
+                return (
+                  <div
+                    key={index}
+                    ref={(el) => (imageRefs.current[index] = el)}
+                    className="w-full"
+                    style={{ margin: 0, padding: 0, display: 'block' }}
+                  >
+                    <img
+                      src={imageSrc}
+                      alt={`Page ${index + 1}`}
+                      className="w-full h-auto block"
+                      style={{
+                        margin: 0,
+                        padding: 0,
+                        display: 'block',
+                        userSelect: 'none',
+                        pointerEvents: 'none'
+                      }}
+                      onError={(e) => {
+                        console.error(`Failed to load page ${index + 1}`);
+                        e.target.style.backgroundColor = '#1a1a1a';
+                        e.target.style.minHeight = '800px';
+                      }}
+                    />
                   </div>
-                )}
+                );
+              })}
+              
+              {/* Chapter Navigation at the end */}
+              <div className="w-full bg-card border-t-2 border-red-primary/30 p-8" style={{ pointerEvents: 'auto' }}>
+                <div className="max-w-2xl mx-auto">
+                  <h3 className="text-2xl font-bold text-center mb-6 text-foreground">
+                    Chapter {chapter.chapterNumber} Complete
+                  </h3>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    {previousChapter ? (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToChapter(previousChapter.id);
+                        }}
+                        className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
+                        size="lg"
+                      >
+                        <ChevronLeft className="w-5 h-5 mr-2" />
+                        Previous Chapter
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToMangaDetail();
+                        }}
+                        className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
+                        size="lg"
+                      >
+                        <Home className="w-5 h-5 mr-2" />
+                        Back to Manga
+                      </Button>
+                    )}
+                    
+                    {nextChapter ? (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToChapter(nextChapter.id);
+                        }}
+                        className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                        size="lg"
+                      >
+                        Next Chapter
+                        <ChevronRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToMangaDetail();
+                        }}
+                        className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                        size="lg"
+                      >
+                        <Home className="w-5 h-5 mr-2" />
+                        Back to Manga
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {nextChapter && (
+                    <div className="mt-6 text-center text-muted-foreground">
+                      <p className="text-sm">Next: Chapter {nextChapter.chapterNumber}</p>
+                      <p className="text-xs">{nextChapter.title}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -586,7 +603,7 @@ const ReaderPage = () => {
 
       {/* Top Controls Bar */}
       <div
-        className={`absolute top-0 left-0 right-0 glass-strong transition-all duration-300 z-40 ${
+        className={`fixed top-0 left-0 right-0 glass-strong transition-all duration-300 z-40 border-b border-red-primary/20 ${
           showControls ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
         }`}
       >
@@ -604,10 +621,10 @@ const ReaderPage = () => {
               <ArrowLeft className="w-6 h-6" />
             </Button>
             <div>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-sm font-semibold text-foreground leading-tight">
                 {manga.title}
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
+              <div className="text-xs text-muted-foreground mt-1">
                 Chapter {chapter.chapterNumber}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -662,11 +679,11 @@ const ReaderPage = () => {
         </div>
       </div>
 
-      {/* Progress Bar - Only show in longstrip mode */}
-      {readingMode === 'longstrip' && showControls && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted/20 z-30">
+      {/* Progress Bar - Only show in longstrip mode when controls are visible */}
+      {readingMode === 'longstrip' && showControls && scrollProgress > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 h-1 bg-muted/20 z-30">
           <div
-            className="h-full bg-gradient-to-r from-red-primary to-red-secondary transition-all duration-300"
+            className="h-full bg-gradient-to-r from-red-primary to-red-secondary"
             style={{ width: `${scrollProgress}%` }}
           ></div>
         </div>
