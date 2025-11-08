@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { X, Maximize2, Minimize2, ArrowLeft, ArrowRight, Loader2, BookOpen, Scroll } from 'lucide-react';
+import { X, Maximize2, Minimize2, ArrowLeft, ArrowRight, Loader2, BookOpen, Scroll, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/utils/api';
 import { storage } from '@/utils/storage';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ const ReaderPage = () => {
   const navigate = useNavigate();
   const [chapter, setChapter] = useState(null);
   const [manga, setManga] = useState(null);
+  const [allChapters, setAllChapters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -22,11 +23,15 @@ const ReaderPage = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [zoomedImageIndex, setZoomedImageIndex] = useState(null);
+  const [longstripScale, setLongstripScale] = useState(1);
+  const [longstripPosition, setLongstripPosition] = useState({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
   const containerRef = useRef(null);
   const imageRefs = useRef([]);
   const lastTap = useRef(0);
   const imageRef = useRef(null);
+  const zoomedImageRef = useRef(null);
 
   useEffect(() => {
     loadChapter();
@@ -66,6 +71,10 @@ const ReaderPage = () => {
       
       const mangaData = await api.getMangaDetails(chapterData.mangaId);
       setManga(mangaData);
+      
+      // Load all chapters for navigation
+      const chaptersData = await api.getMangaChapters(chapterData.mangaId);
+      setAllChapters(chaptersData);
       
       storage.updateHistory(
         mangaData.id,
@@ -199,7 +208,7 @@ const ReaderPage = () => {
     }
   };
 
-  // Double tap to zoom
+  // Double tap to zoom (for paged mode)
   const handleDoubleTap = (e) => {
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTap.current;
@@ -224,7 +233,39 @@ const ReaderPage = () => {
     lastTap.current = currentTime;
   };
 
-  // Drag to pan when zoomed
+  // Double tap to zoom for longstrip mode
+  const handleLongstripDoubleTap = (e, imageIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap.current;
+    
+    if (tapLength < 300 && tapLength > 0) {
+      // Double tap detected
+      if (zoomedImageIndex === imageIndex && longstripScale > 1) {
+        // Zoom out
+        setZoomedImageIndex(null);
+        setLongstripScale(1);
+        setLongstripPosition({ x: 0, y: 0 });
+      } else {
+        // Zoom in
+        setZoomedImageIndex(imageIndex);
+        setLongstripScale(2);
+        // Center zoom on tap location
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        setLongstripPosition({ 
+          x: -(x * 2 - rect.width / 2), 
+          y: -(y * 2 - rect.height / 2) 
+        });
+      }
+    }
+    lastTap.current = currentTime;
+  };
+
+  // Drag to pan when zoomed (paged mode)
   const handleMouseDown = (e) => {
     if (scale > 1) {
       setIsDragging(true);
@@ -245,6 +286,62 @@ const ReaderPage = () => {
     setIsDragging(false);
   };
 
+  // Drag to pan when zoomed (longstrip mode)
+  const handleLongstripMouseDown = (e, imageIndex) => {
+    if (zoomedImageIndex === imageIndex && longstripScale > 1) {
+      e.preventDefault();
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - longstripPosition.x, y: e.clientY - longstripPosition.y });
+    }
+  };
+
+  const handleLongstripMouseMove = (e) => {
+    if (isDragging && longstripScale > 1) {
+      e.preventDefault();
+      setLongstripPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleLongstripMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Get next and previous chapter
+  const getCurrentChapterIndex = () => {
+    return allChapters.findIndex(ch => ch.id === chapterId);
+  };
+
+  const getNextChapter = () => {
+    const currentIndex = getCurrentChapterIndex();
+    if (currentIndex >= 0 && currentIndex < allChapters.length - 1) {
+      return allChapters[currentIndex + 1];
+    }
+    return null;
+  };
+
+  const getPreviousChapter = () => {
+    const currentIndex = getCurrentChapterIndex();
+    if (currentIndex > 0) {
+      return allChapters[currentIndex - 1];
+    }
+    return null;
+  };
+
+  const navigateToChapter = (chapterId) => {
+    navigate(`/read/${chapterId}`);
+  };
+
+  const navigateToMangaDetail = () => {
+    if (manga) {
+      navigate(`/manga/${manga.id}`);
+    } else {
+      navigate('/');
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-screen h-screen bg-background flex items-center justify-center">
@@ -262,6 +359,8 @@ const ReaderPage = () => {
   }
 
   const totalPages = chapter.pages.length;
+  const nextChapter = getNextChapter();
+  const previousChapter = getPreviousChapter();
 
   return (
     <div
@@ -283,11 +382,13 @@ const ReaderPage = () => {
                 ? page 
                 : `data:image/jpeg;base64,${page}`;
               
+              const isZoomed = zoomedImageIndex === index;
+              
               return (
                 <div
                   key={index}
                   ref={(el) => (imageRefs.current[index] = el)}
-                  className="w-full"
+                  className="w-full relative"
                   style={{ margin: 0, padding: 0, display: 'block' }}
                 >
                   <img
@@ -298,9 +399,17 @@ const ReaderPage = () => {
                       margin: 0,
                       padding: 0,
                       display: 'block',
-                      userSelect: 'none'
+                      userSelect: 'none',
+                      transform: isZoomed ? `scale(${longstripScale}) translate(${longstripPosition.x / longstripScale}px, ${longstripPosition.y / longstripScale}px)` : 'none',
+                      transition: isDragging ? 'none' : 'transform 0.3s ease',
+                      cursor: isZoomed ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                      transformOrigin: 'center center'
                     }}
-                    onClick={handleDoubleTap}
+                    onClick={(e) => handleLongstripDoubleTap(e, index)}
+                    onMouseDown={(e) => handleLongstripMouseDown(e, index)}
+                    onMouseMove={handleLongstripMouseMove}
+                    onMouseUp={handleLongstripMouseUp}
+                    onMouseLeave={handleLongstripMouseUp}
                     onError={(e) => {
                       console.error(`Failed to load page ${index + 1}`);
                       e.target.style.backgroundColor = '#1a1a1a';
@@ -310,11 +419,69 @@ const ReaderPage = () => {
                 </div>
               );
             })}
+            
+            {/* Chapter Navigation at the end */}
+            <div className="w-full bg-card border-t-2 border-red-primary/30 p-8">
+              <div className="max-w-2xl mx-auto">
+                <h3 className="text-2xl font-bold text-center mb-6 text-foreground">
+                  Chapter {chapter.chapterNumber} Complete
+                </h3>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  {previousChapter ? (
+                    <Button
+                      onClick={() => navigateToChapter(previousChapter.id)}
+                      className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
+                      size="lg"
+                    >
+                      <ChevronLeft className="w-5 h-5 mr-2" />
+                      Previous Chapter
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={navigateToMangaDetail}
+                      className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
+                      size="lg"
+                    >
+                      <Home className="w-5 h-5 mr-2" />
+                      Back to Manga
+                    </Button>
+                  )}
+                  
+                  {nextChapter ? (
+                    <Button
+                      onClick={() => navigateToChapter(nextChapter.id)}
+                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                      size="lg"
+                    >
+                      Next Chapter
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={navigateToMangaDetail}
+                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                      size="lg"
+                    >
+                      <Home className="w-5 h-5 mr-2" />
+                      Back to Manga
+                    </Button>
+                  )}
+                </div>
+                
+                {nextChapter && (
+                  <div className="mt-6 text-center text-muted-foreground">
+                    <p className="text-sm">Next: Chapter {nextChapter.chapterNumber}</p>
+                    <p className="text-xs">{nextChapter.title}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : (
         /* Paged Mode */
-        <div className="w-full h-full flex items-center justify-center overflow-hidden">
+        <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
           <div 
             className="relative w-full h-full flex items-center justify-center"
             onMouseDown={handleMouseDown}
@@ -370,6 +537,50 @@ const ReaderPage = () => {
               <ArrowRight className="w-6 h-6" />
             </button>
           )}
+          
+          {/* Chapter Navigation at last page */}
+          {currentPage === totalPages - 1 && (
+            <div className="absolute bottom-20 left-0 right-0 z-30 px-4">
+              <div className="max-w-2xl mx-auto bg-card/95 backdrop-blur-sm border-2 border-red-primary/30 rounded-lg p-6">
+                <h3 className="text-xl font-bold text-center mb-4 text-foreground">
+                  Chapter {chapter.chapterNumber} Complete
+                </h3>
+                
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {previousChapter && (
+                    <Button
+                      onClick={() => navigateToChapter(previousChapter.id)}
+                      className="w-full sm:w-auto bg-red-primary/20 hover:bg-red-primary text-white border border-red-primary/50"
+                      size="sm"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Previous
+                    </Button>
+                  )}
+                  
+                  {nextChapter ? (
+                    <Button
+                      onClick={() => navigateToChapter(nextChapter.id)}
+                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                      size="sm"
+                    >
+                      Next Chapter
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={navigateToMangaDetail}
+                      className="w-full sm:w-auto bg-red-primary hover:bg-red-secondary text-white"
+                      size="sm"
+                    >
+                      <Home className="w-4 h-4 mr-1" />
+                      Back to Manga
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -396,8 +607,11 @@ const ReaderPage = () => {
               <div className="text-sm font-semibold text-foreground">
                 {manga.title}
               </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Chapter {chapter.chapterNumber}
+              </div>
               <div className="text-xs text-muted-foreground">
-                Chapter {chapter.chapterNumber} {chapter.title}
+                {chapter.title}
               </div>
             </div>
           </div>
@@ -448,13 +662,9 @@ const ReaderPage = () => {
         </div>
       </div>
 
-      {/* Progress Bar */}
-      {readingMode === 'longstrip' && (
-        <div
-          className={`absolute bottom-0 left-0 right-0 h-1 bg-muted/20 transition-all duration-300 ${
-            showControls ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
+      {/* Progress Bar - Only show in longstrip mode */}
+      {readingMode === 'longstrip' && showControls && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted/20 z-30">
           <div
             className="h-full bg-gradient-to-r from-red-primary to-red-secondary transition-all duration-300"
             style={{ width: `${scrollProgress}%` }}
