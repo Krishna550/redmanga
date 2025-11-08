@@ -3,7 +3,7 @@
   "short_name": "Red Manga",
   "description": "A Progressive Web App for reading manga with fullscreen support and offline capabilities",
   "start_url": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
